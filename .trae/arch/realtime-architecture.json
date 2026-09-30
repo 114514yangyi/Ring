@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "WritingRing 书写状态检测 · 模块架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "csv",
+      "type": "external",
+      "label": "SmartRing CSV",
+      "sublabel": "离线回放输入",
+      "pos": [
+        40,
+        110
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "replay",
+      "type": "backend",
+      "label": "cli.py + io.py",
+      "sublabel": "离线回放 / 列名适配",
+      "pos": [
+        260,
+        110
+      ],
+      "size": [
+        160,
+        62
+      ]
+    },
+    {
+      "id": "ring",
+      "type": "external",
+      "label": "SmartRing 戒指",
+      "sublabel": "6 轴 IMU @200Hz",
+      "pos": [
+        40,
+        350
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "handler",
+      "type": "backend",
+      "label": "RealtimeWritingStateHandler",
+      "sublabel": "realtime.py · 接入 ImuBus",
+      "tag": "实时链路",
+      "pos": [
+        260,
+        350
+      ],
+      "size": [
+        190,
+        62
+      ]
+    },
+    {
+      "id": "rule_detector",
+      "type": "backend",
+      "label": "规则基线 detector.py",
+      "sublabel": "features.py · 硬阈值 + 状态机",
+      "tag": "兜底 / 回归",
+      "pos": [
+        560,
+        240
+      ],
+      "size": [
+        180,
+        62
+      ]
+    },
+    {
+      "id": "model_detector",
+      "type": "backend",
+      "label": "Touch Detector(学习模型)",
+      "sublabel": "paper_touch.py · ResNet",
+      "tag": "主路径",
+      "pos": [
+        560,
+        450
+      ],
+      "size": [
+        180,
+        62
+      ]
+    },
+    {
+      "id": "bus",
+      "type": "messagebus",
+      "label": "ImuBus Topics",
+      "sublabel": "事件 / 逐帧门控 topic",
+      "pos": [
+        880,
+        350
+      ],
+      "size": [
+        170,
+        62
+      ]
+    },
+    {
+      "id": "recognition",
+      "type": "external",
+      "label": "下游字符识别",
+      "sublabel": "只消费有效书写段",
+      "pos": [
+        1200,
+        350
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "clean_data",
+      "type": "database",
+      "label": "清洗数据集",
+      "sublabel": "clean_data_delete_g",
+      "pos": [
+        40,
+        600
+      ],
+      "size": [
+        190,
+        62
+      ]
+    },
+    {
+      "id": "training",
+      "type": "backend",
+      "label": "train_paper_touch.py",
+      "sublabel": "paper_dataset.py 切窗 / 用户划分",
+      "tag": "离线训练",
+      "pos": [
+        300,
+        600
+      ],
+      "size": [
+        190,
+        62
+      ]
+    },
+    {
+      "id": "artifacts",
+      "type": "database",
+      "label": "模型产物 models/",
+      "sublabel": "resnet.pt + report.json",
+      "pos": [
+        580,
+        600
+      ],
+      "size": [
+        180,
+        62
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "csv",
+      "to": "replay",
+      "label": "读取"
+    },
+    {
+      "from": "replay",
+      "to": "rule_detector",
+      "label": "离线调用"
+    },
+    {
+      "from": "ring",
+      "to": "handler",
+      "label": "原始 6 轴帧",
+      "variant": "emphasis"
+    },
+    {
+      "from": "handler",
+      "to": "model_detector",
+      "label": "逐帧样本",
+      "variant": "emphasis"
+    },
+    {
+      "from": "handler",
+      "to": "rule_detector",
+      "label": "兜底切换",
+      "variant": "dashed"
+    },
+    {
+      "from": "model_detector",
+      "to": "bus",
+      "label": "press / lift 事件",
+      "variant": "emphasis"
+    },
+    {
+      "from": "rule_detector",
+      "to": "bus",
+      "label": "writing_start / pen_up",
+      "variant": "dashed"
+    },
+    {
+      "from": "bus",
+      "to": "recognition",
+      "label": "valid_operation=true",
+      "variant": "emphasis"
+    },
+    {
+      "from": "clean_data",
+      "to": "training",
+      "label": "训练样本"
+    },
+    {
+      "from": "training",
+      "to": "artifacts",
+      "label": "训练产出"
+    },
+    {
+      "from": "artifacts",
+      "to": "model_detector",
+      "label": "load_touch_classifier",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "实时主链路",
+      "items": [
+        "戒指原始帧 → RealtimeWritingStateHandler → Touch Detector",
+        "事件经 ImuBus 发布到 writing_state / writing_state_frame",
+        "字符识别只消费 valid_operation=true 的帧或时间段"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "检测器输入契约",
+      "items": [
+        "六通道顺序固定:lin_acc_x/y/z, gyro_x/y/z",
+        "窗口 20 帧(0.1 s),四分类 contact / air / lift / press",
+        "只有 press 与 lift 被解码为 writing_start / pen_up 事件"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "离线训练与产物",
+      "items": [
+        "数据发现与切窗在 paper_dataset.py,按用户无重叠划分 train/val/test",
+        "训练入口 train_paper_touch.py 输出 checkpoint 与 report.json 到 models/",
+        "运行时由 paper_touch.py 的 load_touch_classifier 加载模型产物"
+      ]
+    }
+  ]
+}

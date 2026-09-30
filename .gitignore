@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# 虚拟环境 / conda
+.venv/
+venv/
+env/
+.conda/
+
+# 数据与运行输出(不入库;models/ 已入库,不忽略)
+data/
+clean_data_delete_g/
+outputs/
+
+# 日志
+log/
+logs/
+*.log
+nohup.out
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

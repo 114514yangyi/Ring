@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "touch detector 训练与评估数据流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1080,
+      760
+    ]
+  },
+  "stages": [
+    {
+      "label": "清洗数据"
+    },
+    {
+      "label": "样本构建"
+    },
+    {
+      "label": "切窗与标签"
+    },
+    {
+      "label": "训练"
+    },
+    {
+      "label": "评估与产物"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "clean_data",
+      "type": "database",
+      "label": "清洗数据集",
+      "sublabel": "clean_data_delete_g",
+      "stage": 0,
+      "row": 0,
+      "width": 150
+    },
+    {
+      "id": "discover",
+      "type": "backend",
+      "label": "discover_samples",
+      "sublabel": "扫描样本目录",
+      "stage": 1,
+      "row": 0,
+      "tag": "paper_dataset.py"
+    },
+    {
+      "id": "windows",
+      "type": "backend",
+      "label": "window_labels",
+      "sublabel": "20 帧滑窗 · 4 类",
+      "stage": 2,
+      "row": 0,
+      "tag": "paper_dataset.py"
+    },
+    {
+      "id": "dataset",
+      "type": "backend",
+      "label": "WindowDataset",
+      "sublabel": "z-score + batch",
+      "stage": 3,
+      "row": 0,
+      "tag": "PyTorch Dataset"
+    },
+    {
+      "id": "model",
+      "type": "backend",
+      "label": "TouchResNet",
+      "sublabel": "ResNet 8/16/32",
+      "stage": 3,
+      "row": 1,
+      "tag": "paper_touch.py"
+    },
+    {
+      "id": "evaluate",
+      "type": "backend",
+      "label": "evaluate",
+      "sublabel": "每 epoch 验证",
+      "stage": 4,
+      "row": 0,
+      "tag": "train_paper_touch.py"
+    },
+    {
+      "id": "report",
+      "type": "database",
+      "label": "paper_touch_report",
+      "sublabel": "history + test 指标",
+      "stage": 4,
+      "row": 1
+    },
+    {
+      "id": "checkpoint",
+      "type": "database",
+      "label": "paper_touch_resnet",
+      "sublabel": "最优 epoch 权重",
+      "stage": 4,
+      "row": 2
+    }
+  ],
+  "flows": [
+    {
+      "from": "clean_data",
+      "to": "discover",
+      "label": "读取样本",
+      "variant": "emphasis"
+    },
+    {
+      "from": "discover",
+      "to": "windows",
+      "label": "mask 序列"
+    },
+    {
+      "from": "windows",
+      "to": "dataset",
+      "label": "窗口 + 标签",
+      "variant": "emphasis"
+    },
+    {
+      "from": "dataset",
+      "to": "model",
+      "label": "batch 20x6",
+      "variant": "emphasis",
+      "labelAt": [
+        745,
+        200
+      ]
+    },
+    {
+      "from": "model",
+      "to": "evaluate",
+      "label": "val / test logits",
+      "variant": "emphasis"
+    },
+    {
+      "from": "model",
+      "to": "checkpoint",
+      "label": "最优权重"
+    },
+    {
+      "from": "evaluate",
+      "to": "report",
+      "label": "指标写入",
+      "variant": "emphasis",
+      "labelAt": [
+        960,
+        200
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "数据与划分",
+      "items": [
+        "样本位于 clean_data_delete_g:user_*/{action}/*_x.npy + *_mask.npy",
+        "default_user_split 保证 train / val / test 用户无重叠",
+        "window_labels 由窗口首尾接触状态决定四分类标签"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "归一化与模型",
+      "items": [
+        "compute_normalization 只用训练集帧统计六通道均值 / 方差",
+        "每个窗口 20x6,输入 1-D ResNet(通道 8/16/32)四分类 head",
+        "paper_touch.py 只把 press 与 lift 解码为书写起止事件"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "评估与产物",
+      "items": [
+        "报告含 accuracy / macro F1 / press-lift 事件 F1 与混淆矩阵",
+        "checkpoint 与 report.json 落盘到 models/",
+        "README 记录当前 test accuracy 0.8829 / macro F1 0.8832 / 事件 F1 0.9072"
+      ]
+    }
+  ]
+}
