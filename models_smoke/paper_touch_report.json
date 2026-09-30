@@ -1,0 +1,216 @@
+{
+  "checkpoint": "writing_state\\models_smoke\\paper_touch_resnet.pt",
+  "data_root": "writing_state\\clean_data_delete_g\\data",
+  "split": {
+    "train_users": [
+      "user_0",
+      "user_1",
+      "user_10",
+      "user_11",
+      "user_12",
+      "user_13",
+      "user_14",
+      "user_2",
+      "user_3",
+      "user_4",
+      "user_5",
+      "user_6",
+      "user_7",
+      "user_8",
+      "user_9"
+    ],
+    "val_users": [
+      "user_15",
+      "user_16"
+    ],
+    "test_users": [
+      "user_17",
+      "user_18",
+      "user_19",
+      "user_20"
+    ]
+  },
+  "sample_counts": {
+    "train": 419,
+    "val": 50,
+    "test": 97
+  },
+  "window_counts": {
+    "train": {
+      "contact": 200,
+      "air": 200,
+      "lift": 200,
+      "press": 200
+    },
+    "val": {
+      "contact": 100,
+      "air": 100,
+      "lift": 100,
+      "press": 100
+    },
+    "test": {
+      "contact": 100,
+      "air": 100,
+      "lift": 100,
+      "press": 100
+    }
+  },
+  "normalization": {
+    "mean": [
+      -0.42129161953926086,
+      -0.24409699440002441,
+      0.24796627461910248,
+      0.016857817769050598,
+      0.011964928358793259,
+      0.010445035994052887
+    ],
+    "std": [
+      1.9146674871444702,
+      2.0256664752960205,
+      2.020064353942871,
+      0.6705402731895447,
+      1.0222123861312866,
+      0.7932408452033997
+    ]
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 1.350572066307068,
+      "val_accuracy": 0.2575,
+      "val_macro_f1": 0.1350118139758627,
+      "val_event_macro_f1": 0.0,
+      "val_loss": 1.3775462102890015
+    }
+  ],
+  "val": {
+    "accuracy": 0.2575,
+    "macro_f1": 0.1350118139758627,
+    "event_macro_f1": 0.0,
+    "support": 400,
+    "per_class": {
+      "contact": {
+        "precision": 0.14754098360655737,
+        "recall": 0.09,
+        "f1": 0.11180124223602485,
+        "support": 100
+      },
+      "air": {
+        "precision": 0.27728613569321536,
+        "recall": 0.94,
+        "f1": 0.42824601366742593,
+        "support": 100
+      },
+      "lift": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 100
+      },
+      "press": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 100
+      }
+    },
+    "confusion_matrix": [
+      [
+        9,
+        91,
+        0,
+        0
+      ],
+      [
+        6,
+        94,
+        0,
+        0
+      ],
+      [
+        13,
+        87,
+        0,
+        0
+      ],
+      [
+        33,
+        67,
+        0,
+        0
+      ]
+    ],
+    "labels": [
+      "contact",
+      "air",
+      "lift",
+      "press"
+    ],
+    "loss": 1.3775462102890015
+  },
+  "test": {
+    "accuracy": 0.2625,
+    "macro_f1": 0.1431827004644074,
+    "event_macro_f1": 0.0,
+    "support": 400,
+    "per_class": {
+      "contact": {
+        "precision": 0.21052631578947367,
+        "recall": 0.12,
+        "f1": 0.15286624203821655,
+        "support": 100
+      },
+      "air": {
+        "precision": 0.27113702623906705,
+        "recall": 0.93,
+        "f1": 0.41986455981941306,
+        "support": 100
+      },
+      "lift": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 100
+      },
+      "press": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 100
+      }
+    },
+    "confusion_matrix": [
+      [
+        12,
+        88,
+        0,
+        0
+      ],
+      [
+        7,
+        93,
+        0,
+        0
+      ],
+      [
+        7,
+        93,
+        0,
+        0
+      ],
+      [
+        31,
+        69,
+        0,
+        0
+      ]
+    ],
+    "labels": [
+      "contact",
+      "air",
+      "lift",
+      "press"
+    ],
+    "loss": 1.3837250471115112
+  }
+}
