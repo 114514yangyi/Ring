@@ -56,6 +56,50 @@ python -m writing_state.train_paper_touch `
   --output-dir writing_state\models
 ```
 
+建议先做一个更充分的训练实验，把每次实验输出到独立目录：
+
+```powershell
+python -m writing_state.train_paper_touch `
+  --epochs 50 `
+  --batch-size 512 `
+  --max-train-windows-per-class 30000 `
+  --max-eval-windows-per-class 15000 `
+  --output-dir writing_state\models\exp_50
+```
+
+如果没有 CUDA，可以显式指定 CPU：
+
+```powershell
+python -m writing_state.train_paper_touch `
+  --epochs 50 `
+  --device cpu `
+  --output-dir writing_state\models\exp_50
+```
+
+训练完成后独立测试：
+
+```powershell
+python -m writing_state.evaluate_paper_touch `
+  --checkpoint writing_state\models\exp_50\paper_touch_resnet.pt `
+  --split train `
+  --max-windows-per-class 15000
+
+python -m writing_state.evaluate_paper_touch `
+  --checkpoint writing_state\models\exp_50\paper_touch_resnet.pt `
+  --split val `
+  --max-windows-per-class 15000
+
+python -m writing_state.evaluate_paper_touch `
+  --checkpoint writing_state\models\exp_50\paper_touch_resnet.pt `
+  --split test `
+  --max-windows-per-class 15000 `
+  --report-out writing_state\models\exp_50\test_report.json
+```
+
+`--max-windows-per-class 0` 会评估指定集合中的全部窗口。比较不同训练轮数时，
+请保持数据划分、窗口上限和随机种子一致；最终模型应以 `test` 的
+`event_f1`、尤其是 `lift` 和 `press` 的 F1 为主要参考。
+
 模型输出的时间窗口标签为：
 
 - `writing_start`：指尖开始接触书写平面，开始一个有效书写段。
