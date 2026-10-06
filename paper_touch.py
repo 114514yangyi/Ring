@@ -7,9 +7,9 @@ This module reproduces the touch detector described in WritingRing:
 * four window labels: contact, air, lift, and press;
 * press/lift events decoded into a causal writing-validity gate.
 
-The paper does not publish trained weights in this repository. Inference is
-therefore disabled until a checkpoint is supplied; constructing the model is
-still useful for validating data shape and the eventual training interface.
+The paper does not publish trained weights in this repository. This project
+trains a compatible checkpoint locally; inference requires passing that
+checkpoint to ``load_touch_classifier``.
 """
 
 from __future__ import annotations
