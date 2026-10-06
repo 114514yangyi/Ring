@@ -22,16 +22,20 @@
 python -m writing_state.paper_touch --json
 ```
 
-当前已经基于 `clean_data_delete_g` 训练出 touch detector：
+当前已经基于 `clean_data_delete_g` 训练出 touch detector（三个实验同划分、同评估口径：test 用户
+user_17–user_20，97 样本 / 60000 窗口，同种子、同窗口上限）：
 
 ```text
-模型: writing_state/models/paper_touch_resnet.pt
-报告: writing_state/models/paper_touch_report.json
-测试集: user_17, user_18, user_19, user_20
-test accuracy: 0.8829
-test macro F1: 0.8832
-test press/lift event F1: 0.9072
+基础模型  writing_state/models/paper_touch_resnet.pt          (8 epochs)
+          test accuracy 0.8829 | macro F1 0.8832 | press/lift event F1 0.9072
+exp_30    writing_state/models/exp_30/paper_touch_resnet.pt   (30 epochs)
+          test accuracy 0.9038 | macro F1 0.9042 | press/lift event F1 0.9235
+exp_50    writing_state/models/exp_50/paper_touch_resnet.pt   (50 epochs)
+          test accuracy 0.9092 | macro F1 0.9097 | press/lift event F1 0.9242
 ```
+
+各实验报告在对应目录的 `paper_touch_report.json`;exp_50 另附独立评估的 `test_report.json`。
+三个 checkpoint 均可直接被 `load_touch_classifier` 加载。
 
 ```python
 from writing_state.paper_touch import (
@@ -56,7 +60,7 @@ python -m writing_state.train_paper_touch `
   --output-dir writing_state\models
 ```
 
-建议先做一个更充分的训练实验，把每次实验输出到独立目录：
+更充分的训练实验(`models/exp_30`、`models/exp_50` 即按此方式产出)建议把每次实验输出到独立目录：
 
 ```powershell
 python -m writing_state.train_paper_touch `

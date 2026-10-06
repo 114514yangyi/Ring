@@ -147,3 +147,13 @@
   - 全量 `user_0`(32 样本)重建 0 失败(≈30 MB,官方同用户 28 MB),产物可被 `paper_trajectory_dataset.discover_trajectory_samples/load_sample_arrays` 直接读取。
 - 可视化:`outputs/data_pipeline/raw_to_clean_overview.png`(a: 原始 6 通道;b: 单笔画 raw 帧→clean 网格点;c: 重建 vs 官方 lin_acc;d: 轨迹叠加)。
 - 遗留:acc 去重力实现与网格锚点无法从公开 raw 精确还原;脚本给出可复现近似 + 量化验证,若后续拿到作者预处理脚本可直接替换这两步。
+
+## 2026-10-06
+
+### 两条工作线合并(远端 main + 本地轨迹/识别线)
+
+- 背景:远端 `main` 有独立提交 `2f572a5`(信息"1",作者 Assass1nHeart),与本地 `trajectory-reconstruction`(`72c7abf`)从 `1e88d91` 分叉。
+- 审阅对方改动(纯 touch detector 一条线):新增 `evaluate_paper_touch.py`、`models/exp_30/`、`models/exp_50/`(与基础模型同划分同口径:test user_17–20,97 样本 / 60000 窗口;30/50 epoch test acc 0.9038 / 0.9092,event macro F1 0.9235 / 0.9242),README 插入"更充分训练实验"段落,`paper_touch.py` 仅改 2 行 docstring。
+- 一致性核对:本线未改 `paper_touch.py`/`paper_dataset.py`/`train_paper_touch.py`;`evaluate_paper_touch.py` 依赖的 `load_touch_model`/`evaluate`/dataset 符号全部存在;三个 checkpoint(8/30/50 ep)均可用 `load_touch_classifier` 加载并前向;`git merge-tree` 预演 0 冲突。
+- 处理:合并提交 `6063edf`;整理 README(8/30/50 epoch 三个结果并列,写明同划分/同窗口上限)与 STRUCTURE(补 `evaluate_paper_touch.py`、`models/exp_*` 条目)。
+- 推送:分支与 `main` 均推到 `origin-ssh`(github.com:114514yangyi/Ring);`origin` 保留 ghfast.top 只读镜像用于 fetch。

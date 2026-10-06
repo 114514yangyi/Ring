@@ -11,6 +11,7 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 ├── paper_touch.py             # 学习模型主路径:WritingRing touch detector 复现(窗口化、1-D ResNet、四分类、press/lift 事件解码、加载与导出)
 ├── paper_dataset.py           # 数据集层:clean_data 样本发现、滑窗标签、用户无重叠 train/val/test 划分、归一化、PyTorch Dataset
 ├── train_paper_touch.py       # 训练入口:训练/验证/测试与报告落盘
+├── evaluate_paper_touch.py    # touch detector 独立评估入口:加载 checkpoint 的 split/mean/std,对 train/val/test 复评并落盘 report
 ├── paper_trajectory.py        # 轨迹主路径:TCN+LSTM 速度预测、流式分块推理、接触段积分、论文指标
 ├── paper_trajectory_dataset.py # 轨迹数据层:75s 长片段构造(补零/对称裁剪)、归一化、Dataset
 ├── train_paper_trajectory.py  # 轨迹训练入口:随机/用户划分、TBPTT、checkpoint 与 report
@@ -40,7 +41,7 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 ├── test_character_classifier.py # 字母识别单元测试(切分/特征/模型/划分/指标/重建组装)
 ├── test_word_recognition.py   # 词识别单元测试(切分/特征/DTW/最近实例指标)
 ├── test_word_ctc.py           # CTC 单元测试(编辑距离/贪心解码/词表对齐/模型/collate)
-├── models/                    # 主训练输出:paper_touch_resnet.pt + paper_touch_report.json
+├── models/                    # touch detector 输出:paper_touch_resnet.pt(8 ep,0.8829)+ report.json;exp_30/exp_50/ 为更充分训练实验(0.9038/0.9092),exp_50 附独立评估 test_report.json
 ├── models_trajectory/         # 轨迹模型主训练输出(论文随机划分,V4 dilated+2层LSTM):paper_trajectory.pt + report.json
 ├── models_trajectory_topology/ # 拓扑/双向实验归档 v1、v3、v4(流式主模型)、u1(3层)、b2(双向)、x1/x3(B2 精调);b2u = 用户无重叠严格口径前端(+ eval15k/ 复评报告)
 ├── models_trajectory_user/    # 轨迹模型用户无重叠划分输出(严格对照,旧架构)
@@ -60,6 +61,7 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 | `paper_touch.py` | 学习模型主路径:TouchWindowizer 窗口化、`WritingRingTouchResNet`(残差通道 8/16/32)、四分类 contact/air/lift/press、`PaperTouchDecoder` 只把 press/lift 解码为事件 | 输入 6 通道固定顺序 `lin_acc_x/y/z, gyro_x/y/z` |
 | `paper_dataset.py` | 从 `{data_root}/user_*/{action}/*_x.npy + *_mask.npy` 发现样本;`default_user_split` 按用户划分;`window_labels` 按窗口首尾状态打标 | 数据根目录不在仓库内,训练时用 `--data-root` 指定 |
 | `train_paper_touch.py` | 训练入口,输出 checkpoint 与 report.json(含 split、窗口计数、归一化、history、val/test 指标) | 默认 `--output-dir writing_state/models` |
+| `evaluate_paper_touch.py` | touch detector 独立评估入口:从 checkpoint 读取 split/mean/std 复现同口径评估,可 `--report-out` 落盘 | `python -m writing_state.evaluate_paper_touch --checkpoint writing_state/models/exp_50/paper_touch_resnet.pt --split test --report-out writing_state/models/exp_50/test_report.json` |
 | `paper_trajectory.py` | 轨迹模型主路径:`PaperTrajectoryConfig`(窗 13/TCN k=3/hidden 128)、`WritingRingTrajectoryNet`(TCN+LSTM)、`predict_sequence` 流式分块、`integrate_contact_segments` 接触段积分、`trajectory_metrics` 论文指标 | 输入 6 通道顺序同 touch 路径;输出为帧位移 (Δx,Δy),窗口中点延迟 6 帧 |
 | `paper_trajectory_dataset.py` | 轨迹数据层:`discover_trajectory_samples`、`build_segment_refs`(pad_trim/chunks)、`compute_normalization`、`PaperTrajectoryDataset` | 训练数据语义 `y[t]=board[t+1]-board[t]` |
 | `train_paper_trajectory.py` | 轨迹训练入口:随机 70/10/20 或用户无重叠划分、TBPTT 分块训练、mask 只计接触帧、report 落盘 | 默认 `--output-dir models_trajectory`;`--split user` 为严格对照 |
@@ -84,6 +86,7 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 | --- | --- | --- |
 | `writing_state.paper_touch` | 查看模型摘要 / 导出窗口等 | `python -m writing_state.paper_touch --json` |
 | `writing_state.train_paper_touch` | 训练 touch detector | `python -m writing_state.train_paper_touch --epochs 8 --batch-size 512 --max-train-windows-per-class 30000 --max-eval-windows-per-class 15000 --output-dir writing_state/models` |
+| `writing_state.evaluate_paper_touch` | touch detector 独立评估 | `python -m writing_state.evaluate_paper_touch --checkpoint writing_state/models/exp_50/paper_touch_resnet.pt --split test --max-windows-per-class 15000` |
 | `writing_state.cli` | 规则基线 CSV 回放 | `python -m writing_state.cli data/xxx.csv --events-out outputs/writing_events.csv --segments-out outputs/writing_segments.csv` |
 | `unittest` | 单元测试 | 在父目录运行 `python -m unittest writing_state.test_paper_touch writing_state.test_writing_state` |
 | Python API | 加载模型 | `load_touch_classifier("writing_state/models/paper_touch_resnet.pt")` + `PaperTouchDetector` |
@@ -102,5 +105,5 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 - 数据管线产物:`outputs/data_pipeline/`(raw→clean 检查图);重建数据集本身写到仓库外(如 `/data/huyang/datasets/WritingRing/clean_data_rebuilt/`)。
 - 轨迹产物:`models_trajectory/`(随机划分主结果)、`models_trajectory_user/`(用户无重叠对照);结果图输出到 `outputs/figures/`(已 gitignore),指标汇总 `outputs/figures/metrics_summary.json`。
 - 数据:训练数据默认 `writing_state/clean_data_delete_g/data`(不在仓库内);本机已下载到 `/data/huyang/datasets/WritingRing/clean_data_delete_g/data`(原始数据在同级 `data/`),目录结构 `user_*/{action}/*_x.npy + *_mask.npy`(另含 `_y/_board/_timestamp.npy`)。
-- 模型输出:`models/`、`models_probe/`、`models_smoke/`(checkpoint + report.json,已纳入版本管理)。
+- 模型输出:`models/`(含 `exp_30/`、`exp_50/` 实验归档)、`models_probe/`、`models_smoke/`(checkpoint + report.json,已纳入版本管理)。
 - 无 log 目录;训练/测试指标写入 report.json。
