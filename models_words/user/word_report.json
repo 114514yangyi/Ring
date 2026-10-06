@@ -1,0 +1,127 @@
+{
+  "data_root": "/data/huyang/datasets/WritingRing/clean_data_delete_g/data",
+  "raw_root": "/data/huyang/datasets/WritingRing/data",
+  "split": {
+    "strategy": "user",
+    "train_users": [
+      "user_0",
+      "user_1",
+      "user_2",
+      "user_3",
+      "user_4",
+      "user_5",
+      "user_6",
+      "user_7",
+      "user_8",
+      "user_9",
+      "user_10",
+      "user_11",
+      "user_12",
+      "user_13",
+      "user_14"
+    ],
+    "val_users": [
+      "user_15",
+      "user_16"
+    ],
+    "test_users": [
+      "user_17",
+      "user_18",
+      "user_19",
+      "user_20"
+    ]
+  },
+  "source": "both",
+  "sample_counts": {
+    "train": 4956,
+    "test": 1306
+  },
+  "example_counts": {
+    "gt_train": 4956,
+    "gt_test": 1306,
+    "recon_train": 4956,
+    "recon_test": 1306
+  },
+  "reconstruction": {
+    "used": true,
+    "checkpoint": "/data/huyang/trae_projects/Ring/models_trajectory_topology/x3/paper_trajectory.pt",
+    "counts": {
+      "train": 4956,
+      "test": 1306
+    }
+  },
+  "config": {
+    "resample_frames": 128,
+    "metric": "dtw",
+    "rerank": 50,
+    "deskew": true,
+    "topk": 5,
+    "seed": 42
+  },
+  "test": {
+    "gt": {
+      "overall": {
+        "n": 1306,
+        "top1": 0.5245022970903522,
+        "top5": 0.607197549770291
+      },
+      "closed": {
+        "n": 1084,
+        "top1": 0.6319188191881919,
+        "top5": 0.731549815498155
+      },
+      "open": {
+        "n": 222,
+        "top1": 0.0,
+        "top5": 0.0
+      },
+      "vocabulary_size": 416,
+      "connected": {
+        "n": 678,
+        "top1": 0.44542772861356933,
+        "top5": 0.5368731563421829
+      },
+      "unconnected": {
+        "n": 628,
+        "top1": 0.6098726114649682,
+        "top5": 0.6831210191082803
+      },
+      "train_groups": {
+        "connected": 5024,
+        "unconnected": 4888
+      }
+    },
+    "recon": {
+      "overall": {
+        "n": 1306,
+        "top1": 0.5091883614088821,
+        "top5": 0.5895865237366003
+      },
+      "closed": {
+        "n": 1084,
+        "top1": 0.6134686346863468,
+        "top5": 0.7103321033210332
+      },
+      "open": {
+        "n": 222,
+        "top1": 0.0,
+        "top5": 0.0
+      },
+      "vocabulary_size": 416,
+      "connected": {
+        "n": 678,
+        "top1": 0.44542772861356933,
+        "top5": 0.5176991150442478
+      },
+      "unconnected": {
+        "n": 628,
+        "top1": 0.5780254777070064,
+        "top5": 0.6671974522292994
+      },
+      "train_groups": {
+        "connected": 5024,
+        "unconnected": 4888
+      }
+    }
+  }
+}

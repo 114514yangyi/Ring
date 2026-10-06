@@ -1,0 +1,129 @@
+{
+  "checkpoint": "models_trajectory_user/paper_trajectory.pt",
+  "data_root": "/data/huyang/datasets/WritingRing/clean_data_delete_g/data",
+  "split": {
+    "strategy": "user",
+    "train_users": [
+      "user_0",
+      "user_1",
+      "user_2",
+      "user_3",
+      "user_4",
+      "user_5",
+      "user_6",
+      "user_7",
+      "user_8",
+      "user_9",
+      "user_10",
+      "user_11",
+      "user_12",
+      "user_13",
+      "user_14"
+    ],
+    "val_users": [
+      "user_15",
+      "user_16"
+    ],
+    "test_users": [
+      "user_17",
+      "user_18",
+      "user_19",
+      "user_20"
+    ]
+  },
+  "sample_counts": {
+    "train": 417,
+    "val": 50,
+    "test": 97
+  },
+  "segment_counts": {
+    "train": 417,
+    "val": 50,
+    "test": 97
+  },
+  "normalization": {
+    "mean": [
+      -0.4213383197784424,
+      -0.24391672015190125,
+      0.24790863692760468,
+      0.01689678616821766,
+      0.011961911804974079,
+      0.010418400168418884
+    ],
+    "std": [
+      1.9163569211959839,
+      2.0278358459472656,
+      2.0221312046051025,
+      0.6713453531265259,
+      1.02329683303833,
+      0.7941706776618958
+    ]
+  },
+  "config": {
+    "sample_rate": 200.0,
+    "window_frames": 13,
+    "tcn_kernel": 3,
+    "tcn_channels": [
+      16,
+      16,
+      32,
+      32,
+      64,
+      128
+    ],
+    "feature_dim": 128,
+    "lstm_hidden": 128,
+    "dropout": 0.2,
+    "board_mm_scale": [
+      240.0,
+      169.5
+    ]
+  },
+  "board_mm_scale": [
+    240.0,
+    169.5
+  ],
+  "sample_audit": {
+    "discovered": 566,
+    "invalid_count": 2,
+    "invalid_ids": [
+      "user_0/0/0",
+      "user_7/0/0"
+    ]
+  },
+  "y_anchor": 0,
+  "y_anchor_note": "verified on official data: y[t] = board[t+1] - board[t] (frame-level corr 0.97, integrated 0.9995)",
+  "board_scale_note": "clean board coordinates are normalised; mm errors assume the Sensel Morph active area (240 x 169.5 mm). Raw contacts are normalised too, so physical calibration is not recoverable from raw data alone.",
+  "train": {
+    "epochs": 500,
+    "batch_size": 32,
+    "lr": 0.001,
+    "chunk_len": 3000,
+    "eval_chunk_len": 5000,
+    "long_sample_strategy": "pad_trim",
+    "seed": 42,
+    "device": "cuda"
+  },
+  "history": [],
+  "val": {
+    "segments": 4057,
+    "skipped_degenerate": 4,
+    "n_points": 315125,
+    "normalized_mean": 0.21988064149317896,
+    "normalized_p50": 0.21855109925550611,
+    "normalized_p90": 0.4046484214050423,
+    "frac_gt_0.1": 0.6039603332011106,
+    "mm_mean": 7.781074320670154
+  },
+  "test": {
+    "segments": 8272,
+    "skipped_degenerate": 1,
+    "n_points": 684343,
+    "normalized_mean": 0.21374798617811153,
+    "normalized_p50": 0.21420249202265232,
+    "normalized_p90": 0.3890400214526877,
+    "frac_gt_0.1": 0.6409285986705497,
+    "mm_mean": 8.529735602794721
+  },
+  "evaluation_refresh": "board-ground-truth eval-only refresh after final-review fix"
+}

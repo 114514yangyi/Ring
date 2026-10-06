@@ -1,0 +1,133 @@
+{
+  "checkpoint": "/data/huyang/trae_projects/Ring/models_trajectory_topology/b2u/eval15k/paper_trajectory.pt",
+  "data_root": "/data/huyang/datasets/WritingRing/clean_data_delete_g/data",
+  "split": {
+    "strategy": "user",
+    "train_users": [
+      "user_0",
+      "user_1",
+      "user_2",
+      "user_3",
+      "user_4",
+      "user_5",
+      "user_6",
+      "user_7",
+      "user_8",
+      "user_9",
+      "user_10",
+      "user_11",
+      "user_12",
+      "user_13"
+    ],
+    "val_users": [
+      "user_14",
+      "user_15"
+    ],
+    "test_users": [
+      "user_16",
+      "user_17",
+      "user_18",
+      "user_19",
+      "user_20"
+    ]
+  },
+  "sample_counts": {
+    "train": 388,
+    "val": 47,
+    "test": 129
+  },
+  "segment_counts": {
+    "train": 388,
+    "val": 47,
+    "test": 129
+  },
+  "normalization": {
+    "mean": [
+      -0.41295745968818665,
+      -0.2362755686044693,
+      0.23581655323505402,
+      0.017432792112231255,
+      0.011713935993611813,
+      0.010745999403297901
+    ],
+    "std": [
+      1.9026286602020264,
+      1.9947965145111084,
+      2.0182740688323975,
+      0.6568600535392761,
+      1.0191892385482788,
+      0.7885191440582275
+    ]
+  },
+  "config": {
+    "sample_rate": 200.0,
+    "window_frames": 13,
+    "tcn_kernel": 3,
+    "tcn_channels": [
+      32,
+      64,
+      128
+    ],
+    "tcn_style": "dilated",
+    "feature_dim": 128,
+    "lstm_hidden": 128,
+    "lstm_layers": 2,
+    "bidirectional": true,
+    "dropout": 0.0,
+    "board_mm_scale": [
+      240.0,
+      169.5
+    ]
+  },
+  "board_mm_scale": [
+    240.0,
+    169.5
+  ],
+  "sample_audit": {
+    "discovered": 566,
+    "invalid_count": 2,
+    "invalid_ids": [
+      "user_0/0/0",
+      "user_7/0/0"
+    ]
+  },
+  "y_anchor": 0,
+  "y_anchor_note": "verified on official data: y[t] = board[t+1] - board[t] (frame-level corr 0.97, integrated 0.9995)",
+  "board_scale_note": "clean board coordinates are normalised; mm errors assume the Sensel Morph active area (240 x 169.5 mm). Raw contacts are normalised too, so physical calibration is not recoverable from raw data alone.",
+  "train": {
+    "epochs": 0,
+    "batch_size": 4,
+    "lr": 0.001,
+    "chunk_len": 15000,
+    "eval_chunk_len": 15000,
+    "lr_schedule": "constant",
+    "update_every": "batch",
+    "aux_weight": 0.0,
+    "aux_window": 50,
+    "input_norm": "global",
+    "long_sample_strategy": "pad_trim",
+    "seed": 42,
+    "device": "cuda"
+  },
+  "history": [],
+  "val": {
+    "segments": 3773,
+    "skipped_degenerate": 0,
+    "n_points": 307354,
+    "normalized_mean": 0.12865364345029187,
+    "normalized_p50": 0.12854770610433652,
+    "normalized_p90": 0.23537942932988073,
+    "frac_gt_0.1": 0.48050456476896347,
+    "mm_mean": 5.365884787882326
+  },
+  "test": {
+    "segments": 11070,
+    "skipped_degenerate": 5,
+    "n_points": 871639,
+    "normalized_mean": 0.1589412026002439,
+    "normalized_p50": 0.15802015493567548,
+    "normalized_p90": 0.2867404199645211,
+    "frac_gt_0.1": 0.513846902215252,
+    "mm_mean": 5.540494405498433
+  }
+}
