@@ -344,6 +344,10 @@ def train(args: argparse.Namespace) -> dict[str, Any]:
         config_kwargs["tcn_channels"] = tuple(
             int(value) for value in args.tcn_channels.split(",")
         )
+    if args.window_frames is not None:
+        config_kwargs["window_frames"] = int(args.window_frames)
+    if args.segment_seconds is not None:
+        config_kwargs["segment_seconds"] = float(args.segment_seconds)
     if args.board_mm_scale is not None:
         config_kwargs["board_mm_scale"] = tuple(args.board_mm_scale)
     config = PaperTrajectoryConfig(**config_kwargs)
@@ -590,6 +594,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--tcn-channels",
         help="comma-separated channel widths, e.g. 16,16,32,32,64,128",
+    )
+    parser.add_argument(
+        "--window-frames",
+        type=int,
+        default=None,
+        help="TCN input window in frames (odd); default from the config (13)",
+    )
+    parser.add_argument(
+        "--segment-seconds",
+        type=float,
+        default=None,
+        help="padded training segment length in seconds (default 75); the lab recordings are "
+             "3-4 s long, so a smaller value cuts the per-epoch cost without truncation",
     )
     parser.add_argument("--chunk-len", type=int, default=3000)
     parser.add_argument("--eval-chunk-len", type=int, default=5000)

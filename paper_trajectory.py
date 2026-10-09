@@ -26,6 +26,7 @@ class PaperTrajectoryConfig:
     bidirectional: bool = False
     dropout: float = 0.2
     board_mm_scale: tuple[float, float] | None = (240.0, 169.5)
+    segment_seconds: float = 75.0
 
     @property
     def window_offset(self) -> int:
@@ -33,7 +34,7 @@ class PaperTrajectoryConfig:
 
     @property
     def segment_frames(self) -> int:
-        return int(round(self.sample_rate * 75.0))
+        return int(round(self.sample_rate * self.segment_seconds))
 
     def validate(self) -> None:
         if self.window_frames < 3 or self.window_frames % 2 == 0:
@@ -58,6 +59,8 @@ class PaperTrajectoryConfig:
             raise ValueError("lstm_layers must be positive")
         if self.segment_frames < self.window_frames:
             raise ValueError("segment_frames must cover at least one window")
+        if self.segment_seconds <= 0:
+            raise ValueError("segment_seconds must be positive")
 
 
 def stack_windows(x: Tensor, window_frames: int = 13) -> Tensor:

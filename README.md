@@ -419,6 +419,68 @@ acc  相关 0.55–0.98(近似步,不可逐位还原)
 可视化对照见 `outputs/data_pipeline/raw_to_clean_overview.png`,完整逆向记录与证据见
 `.trae/documents/NOTES.md`「原始数据 → 干净数据」章节。
 
+## 自采 200 Hz 数据管线(重新采集后的标准流程)
+
+队友采集的 200 Hz 数据(`/home/huyang/data/trae_projects/raw/200hz`:4 条件 × 26 字母,
+1580 对 `*_imu.csv` / `*_gt_raw.csv` / `*_gt_100hz.csv` + `_meta/manifest.csv`)走独立管线,
+不动官方 clean 数据路径。三个步骤:
+
+```bash
+# 1) 原始 trial → 训练数据集(逐设备 mm 标定 + spike alignment + 覆盖率过滤)
+python -m writing_state.build_lab_dataset \
+  --output-dir /data/huyang/datasets/RingLab/lab200_v4 \
+  --scale-json /data/huyang/datasets/RingLab/lab200_v4/dataset.json   # 复用已标定的 mm/px
+#     --min-coverage 0.85  只保留"录制窗覆盖 ≥85% 落笔时长"的 trial(可选)
+
+# 2) 轨迹模型(b2u 微调 + 辅助损失;论文同口径逐点加权指标写入 report.json)
+python -m writing_state.train_paper_trajectory --data-root <数据集> --epochs 300 \
+  --lr 3e-4 --lr-schedule cosine --tcn-style dilated --tcn-channels 32,64,128 \
+  --lstm-layers 2 --bidirectional --dropout 0.0 --segment-seconds 5 \
+  --chunk-len 1000 --eval-chunk-len 1000 --eval-every 25 --batch-size 16 \
+  --aux-weight 1.0 --aux-window 50 \
+  --init-checkpoint models_trajectory_topology/b2u/paper_trajectory.pt --output-dir <输出>
+
+# 3) 字母识别(GT 与重建混训;输出逐字母 top1/top3 与混淆矩阵)
+python -m writing_state.train_lab_character --data-root <数据集> --source both \
+  --trajectory-checkpoint <轨迹 checkpoint> --epochs 150 --output-dir <输出>
+
+# 4) 出图(轨迹对比 / 覆盖率 / 26 字母识别率 / 混淆矩阵 / 识别样例)
+python -m writing_state.visualize_lab_results --data-root <数据集> \
+  --trajectory-checkpoint <轨迹 checkpoint> --character-report <字母 report> \
+  --character-checkpoint <字母 checkpoint> --output-dir outputs/lab_eval
+```
+
+要点(踩过的坑,改动都在 `build_lab_dataset.py` 里):
+
+- **board 必须是物理单位**:`board = pixel × mm_per_px / 240`,逐设备用 3×3 / 5×5 cm 书写框
+  标定 `mm_per_px`(手机与平板画布不同,按像素归一化会让同一字母幅度差 2.8 倍)。
+- **对齐用 spike alignment**:笔尖速度剖面保留落笔/抬笔尖峰,与 IMU 运动包络做相关;
+  只有笔迹内部速度或矩形落笔窗时探针 R² 从 0.56 掉到 ~0(见 NOTES 的四判据对照)。
+- **覆盖率入库**:`meta.csv` 的 `coverage` 列 = 落在录制窗内的落笔时长比例;
+  采集质量差会直接压低指标上限,建议采集后先看 `outputs/lab_eval/data_quality.png`。
+
+2026-10-06 结果:轨迹 test 归一化 **0.257**(逐点)/ **6.57 mm**,逐 trial 中位 0.164;
+字母 GT 输入 **76.2%**、重建轨迹端到端 **51.2%**;细节与配图见
+`outputs/lab_eval/README.md` 与 `.trae/documents/NOTES.md`「自采 200 Hz 数据重训」。
+
+### 重采批次(2026-10-09)
+
+队友重采的数据在 `/data/huyang/trae_projects/new`(550 trial = fk 260 + yjx 290),**录制完整度问题已修复**:
+按 `mask_v3` 反推覆盖率中位 **1.000**、**≥0.95 占 100%**(旧批 27%),我方尖峰对齐与 `mask_v3` 互差中位 −0.006 s。
+每 trial 的 IMU csv 新增 `mask`/`mask_v2`/`mask_v3` 三列(采集方提供的三种对齐掩码,推荐用 `mask_v3`)。
+
+```bash
+python -m writing_state.build_lab_dataset \
+  --raw-root /data/huyang/trae_projects/new \
+  --align tablet_mask \
+  --scale-json /data/huyang/trae_projects/new/_meta/device_scale.json \
+  --output-dir /data/huyang/datasets/RingLab/lab200_new_v1
+```
+
+结果(随机划分 seed 42,与轨迹模型同划分):轨迹 test **0.1798 / 6.24 mm**(旧批 0.2573 / 6.57 mm);
+字母 GT **100%**、端到端 **89.09% / 93.64%**(旧批 51.2%)。注意本批只有 2 位书写者、为**同人随机划分**,
+严格跨用户结论待补 fk→yjx 留一用户实验。细节见 `.trae/documents/NOTES.md`「重采批次训练结果」。
+
 ## 参考
 
 Zhe He et al. *WritingRing: Enabling Natural Handwriting Input with a Single IMU Ring*. CHI 2025. DOI: `10.1145/3706598.3714066`.

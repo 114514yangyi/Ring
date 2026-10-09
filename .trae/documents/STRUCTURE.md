@@ -35,6 +35,12 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 ├── board_plot.py              # 触控板数据可视化(轨迹 + 压力)
 ├── ring_plot.py               # 戒指 IMU 数据可视化
 ├── visualize_results.py       # 结果可视化:轨迹重建对比/误差统计、字母混淆矩阵与识别样例、词识别对比与样例(输出 outputs/figures + metrics_summary.json)
+├── evaluate_real_data.py      # 自采 200 Hz 数据(队友采集,raw/200hz)端到端评测:读 manifest 的 per-trial delta 对齐、按训练同口径预处理(1 Hz 高通去重力+gyro)、跑轨迹前端与字母分类器,输出 report.json/per_trial.csv/trajectories.npz;支持 --imu-source device、--align motion|manifest、--input-gain、--save-trajectories
+├── build_lab_dataset.py       # 自采 200 Hz 数据 → WritingRing 风格数据集:逐设备 mm 标定(3x3/5x5 cm 书写框 `bbox_height_px≈px_per_mm×box_mm`)、spike alignment(笔尖速度尖峰相关)、物理 mm 归一化 board、逐 trial 覆盖率记录 + `--min-coverage` 过滤;输出 meta.csv/dataset.json
+├── train_lab_character.py     # 自采数据字母分类训练入口:GT/重建混训、与轨迹模型同划分(seed 42)、report 含逐字母 top1/top3 与混淆矩阵
+├── verify_lab_alignment.py    # 重采批次对齐体检:读 IMU csv 的 mask/mask_v2/mask_v3,反推覆盖率、接触段位置与两套算法互差,输出逐 trial CSV + 直方图
+├── visualize_lab_results.py   # 自采数据结果出图:真值 vs 重建轨迹样例、误差-覆盖率分组、26 字母识别率(GT/重建两列)、端到端混淆矩阵、识别样例
+├── analyze_real_data.py       # 自采数据质量诊断与出图:输入幅度 vs checkpoint 训练统计、陀螺-加速度自洽性、四元数重力方向、IMU-笔速互相关与滞后、书写风格(分段数);输出 quality.json + fig_real_data_{diagnostic,trajectories,recognition,writing_style}.png
 ├── test_paper_touch.py        # 学习模型路径单元测试(形状/重采样/结构/事件/checkpoint 加载)
 ├── test_writing_state.py      # 规则基线单元测试(合成序列回归)
 ├── test_paper_trajectory.py   # 轨迹路径单元测试(数据/模型/积分指标/划分/masked loss)
@@ -45,8 +51,11 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 ├── models_trajectory/         # 轨迹模型主训练输出(论文随机划分,V4 dilated+2层LSTM):paper_trajectory.pt + report.json
 ├── models_trajectory_topology/ # 拓扑/双向实验归档 v1、v3、v4(流式主模型)、u1(3层)、b2(双向)、x1/x3(B2 精调);b2u = 用户无重叠严格口径前端(+ eval15k/ 复评报告)
 ├── models_trajectory_user/    # 轨迹模型用户无重叠划分输出(严格对照,旧架构)
-├── models_character/          # 字母分类输出:user_both/user_gt/random_both + user_both_ud(严格口径,前端 b2u),各含 character_cnn.pt + report.json
+├── models_character/          # 字母分类输出:user_both/user_gt/random_both + user_both_ud(严格口径,前端 b2u),各含 character_cnn.pt + report.json;lab_{gt,gt_long,both_a,both_f} 为自采 200 Hz 数据
 ├── models_words/              # 词识别输出:user/(最近实例基线 report);ctc_{user_both,user_gt,random_both}/(CTC checkpoint+report);ctc_user_both_ud/(严格口径,前端 b2u)
+├── models_lab_new/            # 重采批次(2026-10-09)轨迹模型:traj_r_aux1(随机划分 seed 42,segment 8 s)= test 0.1798 / 6.24 mm
+├── models_character_new/      # 重采批次字母分类器:lab_gt_long(GT 100%)、lab_both(端到端 89.09%)
+├── models_lab/                # 自采 200 Hz 轨迹模型:traj_{a_scratch,b_finetune,d_wide,e_crossuser,f_aux1,g_aux10,v5_scratch,v5_finetune}(paper_trajectory.pt + report.json)
 ├── models_probe/              # 探测性训练输出(同结构)
 ├── models_smoke/              # 冒烟训练输出(同结构)
 ├── README.md                  # 使用说明(模型、规则基线、CLI、实时、参数)
@@ -77,6 +86,11 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 | `cli.py` | `python -m writing_state.cli <csv>` 离线回放 | 可输出 events / segments CSV |
 | `realtime.py` | `RealtimeWritingStateHandler.on_raw(frame, bus)` 实时处理并向 `writing_state`、`writing_state_frame` 发布 | 下游只应消费 `valid_operation=true` |
 | `board_plot.py` / `ring_plot.py` | 触控板与戒指数据可视化 | 数据分析辅助 |
+| `evaluate_real_data.py` | 自采 200 Hz 数据评测入口:manifest per-trial delta 对齐、训练同口径预处理、轨迹前端 + 字母分类器复评 | 输出 `outputs/real_data_eval/{report.json,per_trial.csv,trajectories.npz}`;支持 `--imu-source device`、`--align motion|manifest`、`--input-gain`;结论与证据见 NOTES「自采 200 Hz 数据可用性评估」 |
+| `analyze_real_data.py` | 自采数据质量诊断与配图 | 输出 `quality.json` 与 4 张诊断/对照图;支持 `--skip-metrics` 只重绘;结论见 NOTES「自采 200 Hz 数据可用性评估」 |
+| `build_lab_dataset.py` | 自采 200 Hz → 训练数据集(逐设备 mm 标定、spike 对齐、覆盖率过滤) | `python -m writing_state.build_lab_dataset --output-dir <out> --min-coverage 0.85` |
+| `train_lab_character.py` | 自采数据字母分类训练(GT/重建混训) | `python -m writing_state.train_lab_character --data-root <ds> --source both --trajectory-checkpoint <ckpt> --output-dir <out>` |
+| `visualize_lab_results.py` | 自采数据结果出图(轨迹/字母/覆盖率) | `python -m writing_state.visualize_lab_results --data-root <ds> --trajectory-checkpoint <ckpt> --character-report <report> --output-dir <out>` |
 | `visualize_results.py` | 结果可视化入口:重跑 test 推理,生成轨迹对比与误差统计、字母混淆矩阵/逐类准确率/识别样例、词识别对照/解码样例/GT-重建对照卡片 | 输出 `outputs/figures/fig_*.png` + `letter_accuracy.csv` + `metrics_summary.json`;`--figures trajectory,character,word` 选子集;`--protocol strict` 切到严格口径(前端 b2u + `user_both_ud`/`ctc_user_both_ud`,建议配 `--output-dir outputs/figures_strict`);默认复用 x3 轨迹模型与 user_both 识别模型 |
 | `test_writing_state.py` / `test_paper_touch.py` | 规则基线与学习模型的单元测试 | 见"配置与依赖"中的运行方式 |
 
@@ -94,6 +108,9 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 | `writing_state.paper_trajectory` | 查看轨迹模型摘要/校验 checkpoint | `python -m writing_state.paper_trajectory --json` |
 | `writing_state.board_scale` | board 单位标定 | `python -m writing_state.board_scale --clean-sample .../data/user_0/1/0` |
 | Python API(轨迹) | 加载轨迹模型 | `load_trajectory_predictor("writing_state/models_trajectory/paper_trajectory.pt")` + `predict_deltas / integrate_contact_segments` |
+| `writing_state.evaluate_real_data` | 在自采 200 Hz 数据上评测 | `python -m writing_state.evaluate_real_data --align manifest --per-condition --save-trajectories --output-dir outputs/real_data_eval` |
+| `writing_state.analyze_real_data` | 自采数据质量诊断 + 出图 | `python -m writing_state.analyze_real_data --output-dir outputs/real_data_eval`(加 `--skip-metrics` 只重绘) |
+| `writing_state.verify_lab_alignment` | 重采批次对齐体检 | `python -m writing_state.verify_lab_alignment --root /data/huyang/trae_projects/new --out outputs/lab_eval/new_data_check` |
 | `writing_state.visualize_results` | 生成结果图(轨迹/字母/单词) | `python -m writing_state.visualize_results --figures trajectory,character,word` |
 
 ## 配置与依赖
@@ -107,3 +124,4 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 - 数据:训练数据默认 `writing_state/clean_data_delete_g/data`(不在仓库内);本机已下载到 `/data/huyang/datasets/WritingRing/clean_data_delete_g/data`(原始数据在同级 `data/`),目录结构 `user_*/{action}/*_x.npy + *_mask.npy`(另含 `_y/_board/_timestamp.npy`)。
 - 模型输出:`models/`(含 `exp_30/`、`exp_50/` 实验归档)、`models_probe/`、`models_smoke/`(checkpoint + report.json,已纳入版本管理)。
 - 无 log 目录;训练/测试指标写入 report.json。
+- 重采批次(2026-10-09):`/data/huyang/trae_projects/new`(550 trial,fk 260 + yjx 290,每 trial 含 `_imu.csv`/`_gt_raw.csv`/`_gt_100hz.csv`,IMU csv 新增 `mask`/`mask_v2`/`mask_v3` 三种对齐掩码列)→ `RingLab/lab200_new_v1`(仓库外,550 样本;覆盖率中位 1.000、≥0.95 占 100%);建集走 `build_lab_dataset.py --align tablet_mask`,体检走 `verify_lab_alignment.py`。

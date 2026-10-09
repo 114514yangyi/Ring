@@ -50,3 +50,19 @@
    可选后续:词表约束 beam search、更长训练/多种子 ensemble;严格跨用户端到端已用用户无重叠前端 b2u 完成重跑(前端 0.159/5.54 mm、字母 86.30%、单词 64.17%)。详见 NOTES 文末「严格端到端重跑」。
 
 (X)4. 【完成·数据管线】确认训练数据为官方 clean 版并逆向 raw→clean 转换规则:裁剪窗口(头 0.6s/尾 1.0s)、4977.75us 均匀网格、gyro 逐位截取、acc 去重力(近似)、Sensel 触点重采样为 board/mask/y。交付 `build_clean_dataset.py`(含 `--validate-against` 一致性报告,gyro Δ=0、board 2e-4、mask 99%、y corr 0.997)与 `outputs/data_pipeline/raw_to_clean_overview.png`;README/NOTES/STRUCTURE 已同步。遗留:acc 去重力与网格锚点不可精确还原。
+
+(X)5. 【完成·自采 200 Hz 数据重训】用队友采集的 `/home/huyang/data/trae_projects/raw/200hz`(1580 trial)重训轨迹与字母模型:
+   - 修三个根因:①画布尺度污染 → 逐设备 mm 标定(board = pixel × mm_per_px / 240);②对齐判据 → spike alignment(4 判据对照 B/D 最优:+0.559 vs −0.05);③采集覆盖率记录(`coverage_all.csv`、`--min-coverage`)。
+   - 数据集 `RingLab/lab200_v4`(1516 样本)+ `lab200_v5`(覆盖率 ≥0.85 的 504 样本);入口 `build_lab_dataset.py`。
+   - 轨迹:8 配置对照,最佳 `models_lab/traj_f_aux1`(b2u 微调 + 辅助损失 1.0)= val 0.1917 / test **0.2573(逐点)/ 6.57 mm**;逐 trial 中位 0.164 / 5.37 mm;v5 高覆盖子集 0.183。基线:零 0.446 / 平均速度 0.304;论文 0.073 / 1.64 mm;官方 clean 复现 0.105 / 4.15 mm。
+   - 字母:GT 输入 **76.2% / 88.8%**(`models_character/lab_gt_long`);重建轨迹端到端 **51.2% / 74.3%**(`lab_both_f`)。错误集中在形近对(C→D、O→S、A→G)。
+   - 数据质量:落笔时长仅 65% 落在录制窗内(≥0.95 占 27%、<0.5 占 29%);部分样本平板只记到字母的一部分(B 一半样本只剩竖线)。
+   - 图:`outputs/lab_eval/`;文档 NOTES 新增「自采 200 Hz 数据重训」专节。
+
+(X)6. 【完成·重采批次重训】队友重采的 `/data/huyang/trae_projects/new`(550 trial)已录全并重训:
+   - 录制完整度:覆盖率中位 **1.000**、**≥0.95 占 100%**(旧批 27%),采集方的 `mask_v3` 与我方尖峰对齐互差中位 −0.006 s。
+   - 数据集 `RingLab/lab200_new_v1`(550 样本,48.96 万帧);建集 `build_lab_dataset.py --align tablet_mask`。
+   - 轨迹 `models_lab_new/traj_r_aux1`:val 0.1646 / test **0.1798 / 6.24 mm**(旧批 0.2573 / 6.57 mm,归一化 −30%);论文 0.073 / 1.64 mm。
+   - 字母 `models_character_new/`:GT **100%**(`lab_gt_long`)、端到端 **89.09% / 93.64%**(`lab_both`,旧批 51.2%);论文 IME 口径 88.7%。
+   - 口径提醒:本批为**同人随机划分**(2 位书写者),严格跨用户结论待补 fk→yjx 留一用户实验;新批无单词数据。
+   - 图 `outputs/lab_eval_new/`;文档见 NOTES「重采数据(new 批次)核查与建集」与「重采批次训练结果」。
