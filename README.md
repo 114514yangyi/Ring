@@ -481,6 +481,65 @@ python -m writing_state.build_lab_dataset \
 字母 GT **100%**、端到端 **89.09% / 93.64%**(旧批 51.2%)。注意本批只有 2 位书写者、为**同人随机划分**,
 严格跨用户结论待补 fk→yjx 留一用户实验。细节见 `.trae/documents/NOTES.md`「重采批次训练结果」。
 
+### SmartRing 本次运行的 checkpoint 与推理
+
+针对 `/data/fan/SmartRing/data/raw/new` 运行得到的 checkpoint 保存在
+`outputs/run_smartring_new_20261010/`：
+
+```text
+轨迹模型  outputs/run_smartring_new_20261010/traj_r_aux1/paper_trajectory.pt
+字母模型  outputs/run_smartring_new_20261010/character_both/character_cnn.pt
+```
+
+轨迹 checkpoint 已保存模型结构、6 轴输入的 `mean/std`、200 Hz 采样率、13 帧窗口和
+双向 LSTM 配置，可直接加载：
+
+```python
+import numpy as np
+import torch
+
+from writing_state.paper_trajectory import load_trajectory_predictor
+from writing_state.character_model import load_character_model
+from writing_state.character_dataset import normalize_trajectory, resample_trajectory
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+trajectory = load_trajectory_predictor(
+    "outputs/run_smartring_new_20261010/traj_r_aux1/paper_trajectory.pt",
+    device=device,
+)
+character = load_character_model(
+    "outputs/run_smartring_new_20261010/character_both/character_cnn.pt",
+    device=device,
+)
+
+# x 的形状为 [帧数, 6]，通道顺序固定为：
+# [lin_acc_x, lin_acc_y, lin_acc_z, gyro_x, gyro_y, gyro_z]
+x = np.asarray(contact_imu_frames, dtype=np.float32)
+deltas = trajectory.predict_deltas(x)  # [帧数, 2]
+
+# 丢弃 13 帧窗口的前 6 个预热位置；只对接触段积分。
+valid = np.isfinite(deltas).all(axis=1)
+points = np.cumsum(np.where(valid[:, None], deltas, 0.0), axis=0)
+points = normalize_trajectory(resample_trajectory(points[valid], 64))
+
+with torch.no_grad():
+    logits = character(
+        torch.from_numpy(points[None].astype(np.float32)).to(device)
+    )
+letter_index = int(logits.argmax(dim=1).item())
+print(chr(ord("A") + letter_index))
+```
+
+也可以只使用轨迹模型输出，保存 `deltas` 或积分后的二维轨迹供其他模块使用。
+输入的加速度和角速度单位必须与训练数据一致，不能直接混用未经转换的 g 或 deg/s。
+
+注意：本次轨迹模型配置为**双向 LSTM**，需要一个完整接触段或有界缓冲块，不能严格按单帧因果地输出；
+`predict_deltas` 返回序列的前 6 个位置是窗口预热区，应丢弃。字母模型输入不是原始 IMU，
+而是轨迹积分后首点归零、归一化并弧长重采样到 64 点的二维轨迹。当前 checkpoint 的训练划分为两位书写者的随机
+70/10/20 划分，不代表严格跨用户泛化；完整配置和指标见
+`outputs/run_smartring_new_20261010/traj_r_aux1/paper_trajectory_report.json` 与
+`outputs/run_smartring_new_20261010/character_both/character_report.json`。
+
 ## 参考
 
 Zhe He et al. *WritingRing: Enabling Natural Handwriting Input with a Single IMU Ring*. CHI 2025. DOI: `10.1145/3706598.3714066`.

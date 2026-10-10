@@ -323,3 +323,12 @@
 - 逐字母端到端最低:J 43%(n=7)、D 67%(6)、F 67%(3)、H 67%(3)、K 75%(4)、N 75%(4)、P 83%(6)、C 86%(7);其余 18 个字母 100%。
 - 产物:数据集 `/data/huyang/datasets/RingLab/lab200_new_v1`;图 `outputs/lab_eval_new/`(trajectory_examples / letter_accuracy / recognition_examples / confusion_recon / error_vs_coverage)。
 - 未做:单词识别(新批只有单字母)、覆盖率高不再需要 v5 高覆盖子集(≥0.95 已占 100%)。
+
+### SmartRing 数据运行记录(2026-10-10)
+
+- 用户提供原始数据: `/data/fan/SmartRing/data/raw/new`。其内容与重采批次格式一致(26 个字母目录、550 个 trial、三件套 CSV)，但清单位于根目录 `new_manifest.csv`，没有 `_meta/manifest.csv`；本次仅建立兼容软链 `_meta/manifest.csv -> ../new_manifest.csv`，未修改 CSV 内容。
+- 使用环境: `/data/fan/conda/writingring-gpu`，PyTorch 2.10.0+cu128，RTX 4090。使用既有设备标定 fk=0.176409、yjx=0.250143 mm/px，并以 `--align tablet_mask` 建集。
+- 建集产物: `/data/fan/SmartRing/data/processed/lab200_new_20261010`；550/550 样本成功，489649 帧、257648 接触帧，user_6=260、user_7=290，无跳过项。
+- 轨迹训练产物: `outputs/run_smartring_new_20261010/traj_r_aux1`；随机 seed 42、70/10/20、dilated TCN 32/64/128 + 2 层 BiLSTM、aux=1、300 epoch、lr 3e-4 cosine。test=110 段，归一化误差 **0.12153**，mm 误差 **3.6200**。
+- 字母训练产物: `outputs/run_smartring_new_20261010/character_both`；GT+重建混训 150 epoch。test=110，GT top1/top3 **100%/100%**，重建端到端 **92.73%/97.27%**。
+- 本批仍是两位书写者的随机划分，不等同于严格跨用户泛化；数据集只有单字母样本，因此未运行单词识别。
