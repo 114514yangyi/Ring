@@ -332,3 +332,11 @@
 - 轨迹训练产物: `outputs/run_smartring_new_20261010/traj_r_aux1`；随机 seed 42、70/10/20、dilated TCN 32/64/128 + 2 层 BiLSTM、aux=1、300 epoch、lr 3e-4 cosine。test=110 段，归一化误差 **0.12153**，mm 误差 **3.6200**。
 - 字母训练产物: `outputs/run_smartring_new_20261010/character_both`；GT+重建混训 150 epoch。test=110，GT top1/top3 **100%/100%**，重建端到端 **92.73%/97.27%**。
 - 本批仍是两位书写者的随机划分，不等同于严格跨用户泛化；数据集只有单字母样本，因此未运行单词识别。
+
+### SmartRing 单向 LSTM 对照(2026-10-11)
+
+- 在同一 SmartRing 数据集、seed 42、70/10/20 划分和其余超参数不变的条件下，从零训练单向 LSTM；未使用双向 checkpoint 初始化。
+- checkpoint:`outputs/run_smartring_new_20261010/traj_r_aux1_uni/paper_trajectory.pt`；test 110 段，normalized **0.16513**、mm **4.77739**。
+- 双向 baseline 为 normalized **0.12153**、mm **3.6200**；单向误差更高，但模型配置 `bidirectional=false`，可使用 `predict_sequence(..., chunk_len=50)` 分块推理。
+- 流式 smoke test:50 帧分块与整段输出最大绝对差 `2.24e-8`。不过当前 13 帧居中窗口仍带来 6 帧=30 ms 固定前视延迟；单向 LSTM 消除了双向 recurrent context，但不是零延迟因果模型。
+- 下游字母识别使用单向轨迹 checkpoint 重新训练(`outputs/run_smartring_new_20261010/character_both_uni/character_cnn.pt`):GT top1/top3 **100%/100%**，重建轨迹端到端 **90.91%/97.27%**(n=110)。相较双向轨迹的 92.73%/97.27%，top1 −1.82 个百分点、top3 持平。

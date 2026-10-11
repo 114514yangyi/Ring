@@ -540,6 +540,24 @@ print(chr(ord("A") + letter_index))
 `outputs/run_smartring_new_20261010/traj_r_aux1/paper_trajectory_report.json` 与
 `outputs/run_smartring_new_20261010/character_both/character_report.json`。
 
+单向 LSTM 对照模型已在同一数据集和同一随机划分上从零训练完成：
+
+```text
+checkpoint  outputs/run_smartring_new_20261010/traj_r_aux1_uni/paper_trajectory.pt
+test normalized error  0.16513
+test mm error          4.77739
+test segments          110
+```
+
+单向模型相较双向 baseline（`0.12153 / 3.6200 mm`）误差更高，但支持分块流式推理。
+由于模型仍使用居中的 13 帧窗口，输出中心帧需要前后各 6 帧，实际有约 **30 ms 固定前视延迟**；
+因此它是有界延迟的流式模型，并非零延迟因果模型。实测 50 帧分块与整段推理最大差约 `2.24e-8`。
+
+使用该单向轨迹 checkpoint 重新训练下游字母分类器后，测试集结果为：GT 轨迹
+`100% / 100%`，重建轨迹端到端 `90.91% / 97.27%`（top-1 / top-3，均为 110 个测试样本）。
+对应字母 checkpoint 为 `outputs/run_smartring_new_20261010/character_both_uni/character_cnn.pt`；
+相较双向轨迹的重建结果 `92.73% / 97.27%`，单向模型 top-1 下降 1.82 个百分点，top-3 持平。
+
 ## 参考
 
 Zhe He et al. *WritingRing: Enabling Natural Handwriting Input with a Single IMU Ring*. CHI 2025. DOI: `10.1145/3706598.3714066`.
