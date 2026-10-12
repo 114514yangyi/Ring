@@ -340,3 +340,10 @@
 - 双向 baseline 为 normalized **0.12153**、mm **3.6200**；单向误差更高，但模型配置 `bidirectional=false`，可使用 `predict_sequence(..., chunk_len=50)` 分块推理。
 - 流式 smoke test:50 帧分块与整段输出最大绝对差 `2.24e-8`。不过当前 13 帧居中窗口仍带来 6 帧=30 ms 固定前视延迟；单向 LSTM 消除了双向 recurrent context，但不是零延迟因果模型。
 - 下游字母识别使用单向轨迹 checkpoint 重新训练(`outputs/run_smartring_new_20261010/character_both_uni/character_cnn.pt`):GT top1/top3 **100%/100%**，重建轨迹端到端 **90.91%/97.27%**(n=110)。相较双向轨迹的 92.73%/97.27%，top1 −1.82 个百分点、top3 持平。
+
+### AI handoff 信息流(2026-10-12)
+
+- 用户要求建立可跨会话/AI 工具交接的实验记录流程。新增项目入口 `.trae/HANDOFF.md`，给新会话一个明确 read-first 顺序、当前状态、结果索引和下一步；新增 `documents/HANDOFF_PROTOCOL.md` 说明如何持续核对、记录多阶段任务。
+- `.trae/rules/knowledge-base.md` 将 handoff 与 protocol 加入常驻必读入口；`documents/RULES.md` 要求跨步骤任务在状态变化/切会话时更新 handoff，并继续遵守 TODO 由用户维护的既有规则。
+- 可复用 Codex skill 位于 `/data/fan/CODEX_HOME/skills/experiment-handoff/`；其他 AI 工具可直接按项目内 `HANDOFF_PROTOCOL.md` 执行。
+- 初始状态按 `TODO.md` 和 `DESIGN.md` 核对：无活动 TODO；最近项目实验记录截至 2026-10-11；DESIGN 中剩余长期里程碑未转成用户任务。2026-10-12 09:00 CST 未发现 Ring 仓库相关运行进程。
