@@ -340,3 +340,22 @@
 - 双向 baseline 为 normalized **0.12153**、mm **3.6200**；单向误差更高，但模型配置 `bidirectional=false`，可使用 `predict_sequence(..., chunk_len=50)` 分块推理。
 - 流式 smoke test:50 帧分块与整段输出最大绝对差 `2.24e-8`。不过当前 13 帧居中窗口仍带来 6 帧=30 ms 固定前视延迟；单向 LSTM 消除了双向 recurrent context，但不是零延迟因果模型。
 - 下游字母识别使用单向轨迹 checkpoint 重新训练(`outputs/run_smartring_new_20261010/character_both_uni/character_cnn.pt`):GT top1/top3 **100%/100%**，重建轨迹端到端 **90.91%/97.27%**(n=110)。相较双向轨迹的 92.73%/97.27%，top1 −1.82 个百分点、top3 持平。
+
+### 手腕靠桌新批次重训(2026-10-29)
+
+- 数据:用户提供原始目录 `/data/dataset/wrist-resting-new-data`(8637 个 csv = 2879 个 trial,11 位书写者,每字母 2–3 次;4 种画布 400×785 / 1024×661 / 1080×682 / 1080×728,画布几乎等价于书写者身份)。列结构与重采批次一致,但 IMU 无 `mask/mask_v2/mask_v3` 列,且加速度单位是 g(读入侧 ×9.81 后与旧批同口径)。
+- 问题:本批 GT `timestamp` 是主机 epoch,`received_at` 与它同轴,所以旧约定 `delta = 首个 GT down − 首个 IMU received_at`(≈0.97 s)**不能**再用——会把落笔点钉到录制首帧、丢掉约 0.67 s 前置录制。结论:**delta 一律取 0**(绝对 epoch 映射),由 `epoch = median(received_at − imu.t)` 承担映射。
+- 问题:wangtiancheng 全部 284 个 trial 的 GT 时钟早约 **591 s**(平板采集侧时钟偏移)。尝试①宽窗互相关(±4 s、0.25 s 步长)→ 锁到 **~2.5 s 的假峰**(短字母笔迹类周期结构的等价峰),284 个 delta 全偏 2.49 s,56% trial 被覆盖率闸门丢弃;尝试②在 gap±0.4 s 窄带扫相关 → 172/284 最优点落在搜索边界,同样不可靠。结论:**直接 `delta = gap`**(gap = 首个 down − 首个 IMU received_at),实测该用户 coverage 中位 0.988(284 个里只剩 1 个 <0.95),pen 起点早于 IMU 起点中位仅 0.01 s。
+- 尺度:本批没有 3×3/5×5 cm 书写框,`estimate_device_scales` 不可用。采用「**每用户字母 bbox 高度中位锚定 30 mm**」→ `mm_per_px = 30 / median(bbox_h_px)`,逐 (user,canvas) 计算并写入 `_meta/trial_scale.json`,建集用新增的 `--trial-scale-json`。报告中所有 mm 数字都带「假设标定(无书写框)」前提。
+- 新增脚本 `build_wrist_resting_manifest.py`(枚举原始目录 → `manifest.csv`/`trial_scale.json`/`scale_report.json`);`build_lab_dataset.py` 新增 `--trial-scale-json`、`--align-search LOW HIGH STEP`;`train_paper_trajectory.py` 新增 `--val-samples-ratio`(`--split user` 时从训练用户样本分层抽 val,满足「8 train + 3 test、不单独留 val 用户」)。
+- 对齐精修:建集用 `--align correlation --align-search -0.12 0.12 0.005`(窄窗,精修后 |lag| 中位 0.00 / max 0.125);覆盖率闸门从 0.95 放宽到 **0.90**(0.95 会在 delta=gap 的正确对齐下误杀)。
+- 数据集:`/data/huyang/datasets/RingLab/wrist_resting_v1`,**2819 样本 / 1,622,577 帧 / 落笔 756,343 帧**,user_8..user_18 = huangzixin/maoyixuan/niexiaoyan/shaokaiwen/shaoyuxuan/wangfeilong/wangtiancheng/wangling/wangzhipeng/yangyiming/zhangxiaozheng(skipped.low_coverage=60)。
+- 训练协议沿用项目 canonical(user-disjoint、dilated TCN 32/64/128 + 2 层 BiLSTM、300 epoch、lr 1e-3 cosine、segment 5 s、chunk 1000、batch 16):**test 用户 = user_8 / user_11 / user_17**(huangzixin 400×785、shaokaiwen 1080×682、yangyiming 1024×661);其余 8 位用户按 90/10 抽样本做 val。
+- 结果 A(`models_trajectory/wrist_resting_b2u`,aux=1.0):val **0.16384 / 4.9206 mm**,test **0.26764 / 8.0411 mm**(773 段,skipped 0)。
+- 结果 B(对照,`models_trajectory/wrist_resting_noaux`,无 aux):val **0.18799 / 5.7167 mm**,test **0.27750 / 8.3744 mm**。→ aux 略优(归一化 −3.6%),作为交付版本;无 aux 版保留为对照。
+- 观察:aux loss 会显著拖慢逐帧 delta 收敛(train_loss 到 ep136 才 7e-5),但最终 val/test 更好;无 aux 版 ep2 即 2e-6、val 在 0.19–0.58 之间震荡。另试 chunk 15000/batch 4 的对齐 b2u 全序列 BPTT → 2.5 min/epoch(300 epoch ≈ 12.5 h),已放弃。
+- 逐用户 test(aux 版):user_8 0.3429 / 10.21 mm、user_11 0.2513 / 7.59 mm、user_17 0.2342 / 7.05 mm;训练用户域内 0.055–0.111 / 1.67–3.34 mm → 跨人泛化差距约 4–5 倍,是本批主要瓶颈,与假定尺度标定误差叠加。
+- 逐字母 test(26 字母各 29–31 段):最难 e 0.355、x 0.353、d 0.352、w 0.333、u 0.324;最易 r 0.201、f 0.203、q 0.235、t 0.236、b 0.236。
+- 产物:图 `outputs/wrist_resting_eval/recon_user_{8,11,17}.png`(GT 灰 vs 重建红);单元测试 `python -m unittest writing_state.test_paper_trajectory` 51 项通过(需要父目录软链 `writing_state -> Ring`)。
+- 未做:字母分类器/单词(本轮只按要求重训轨迹模型 + 测试);严格 val 用户(按用户拍板从训练用户抽 10% 样本,存在轻微泄露)。
+- 增益诊断(aux 版, 逐段最小二乘拟合 `s = Σ(pred·gt)/Σ(pred·pred)` 后复评):user_8 0.3429→**0.2593**(10.21→8.06 mm)、user_11 0.2513→**0.2022**(7.59→6.38 mm)、user_17 0.2342→**0.2080**(7.05→6.42 mm)。→ 跨人误差里约 20–25% 来自幅值/增益不匹配(与「30 mm 假设标定」和 IMU 幅度到位移的增益差一致),其余是波形/漂移误差。

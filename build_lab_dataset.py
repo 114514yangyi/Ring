@@ -69,6 +69,18 @@ USER_GROUPS = [
     ("yjx", "3x3-wrist-resting"),
     ("fk", "new"),
     ("yjx", "new"),
+    # wrist-resting-new-data drop (2026-10-28, 11 writers x 26 letters, no guide box)
+    ("huangzixin", "wrist-resting-tablet"),
+    ("maoyixuan", "wrist-resting-tablet"),
+    ("niexiaoyan", "wrist-resting-tablet"),
+    ("shaokaiwen", "wrist-resting-tablet"),
+    ("shaoyuxuan", "wrist-resting-tablet"),
+    ("wangfeilong", "wrist-resting-tablet"),
+    ("wangtiancheng", "wrist-resting-tablet"),
+    ("wangling", "wrist-resting-tablet"),
+    ("wangzhipeng", "wrist-resting-tablet"),
+    ("yangyiming", "wrist-resting-tablet"),
+    ("zhangxiaozheng", "wrist-resting-tablet"),
 ]
 GROUP_INDEX = {key: index for index, key in enumerate(USER_GROUPS)}  # (source, condition) -> user_k
 BOARD_MM_REFERENCE = 240.0  # 1.0 board unit == 240 mm, matching the paper's Sensel Morph width
@@ -323,6 +335,14 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
                         help="override the auto-estimated mm-per-pixel scale (single source only)")
     parser.add_argument("--scale-json", type=Path, default=None,
                         help="reuse a previously written per-source mm-per-pixel calibration")
+    parser.add_argument("--trial-scale-json", type=Path, default=None,
+                        help="per-trial mm-per-pixel override {trial_name: mm_per_px}; needed when "
+                             "the canvas (and therefore the px-per-mm) changes per trial")
+    parser.add_argument("--align-search", type=float, nargs=3, default=(-1.0, 2.5, 0.01),
+                        metavar=("LOW", "HIGH", "STEP"),
+                        help="lag search range (seconds) for the correlation/contrast/tablet_mask "
+                             "alignment; a narrow range around a trusted clock estimate avoids "
+                             "spurious peaks")
     parser.add_argument("--min-coverage", type=float, default=0.0,
                         help="drop trials whose pen-down window is only partially inside the ring "
                              "recording (coverage = captured pen time / total pen time)")
@@ -337,6 +357,12 @@ def main(argv: Iterable[str] | None = None) -> None:
         trials = trials[: args.limit]
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
+    trial_scales: dict[str, float] = {}
+    if args.trial_scale_json and args.trial_scale_json.exists():
+        payload = json.loads(args.trial_scale_json.read_text(encoding="utf-8"))
+        trial_scales = {str(key): float(value) for key, value in payload.items()}
+        print(f"[lab-scale] per-trial override for {len(trial_scales)} trials from "
+              f"{args.trial_scale_json}", flush=True)
     if args.scale_json and args.scale_json.exists():
         payload = json.loads(args.scale_json.read_text(encoding="utf-8"))
         table = payload.get("mm_per_px") or payload.get("device_mm_per_px") or {}
@@ -344,13 +370,17 @@ def main(argv: Iterable[str] | None = None) -> None:
         if not device_scales:
             raise SystemExit(f"no per-device mm_per_px table found in {args.scale_json}")
         print(f"[lab-scale] reused {args.scale_json}: {device_scales}", flush=True)
+    elif trial_scales:
+        device_scales = {}
     else:
         device_scales = estimate_device_scales(trials, progress=args.progress)
     if args.device_scale is not None:
         device_scales = {source: float(args.device_scale) for source in device_scales}
     print(f"[lab-scale] mm per pixel: "
           f"{ {key: round(value, 5) for key, value in device_scales.items()} }", flush=True)
-    missing = sorted({trial.source for trial in trials} - set(device_scales))
+    missing = sorted({trial.source for trial in trials
+                      if trial.source not in device_scales
+                      and trial.trial not in trial_scales})
     if missing:
         raise SystemExit(f"no device scale for sources: {missing}")
 
@@ -361,9 +391,14 @@ def main(argv: Iterable[str] | None = None) -> None:
         if key not in GROUP_INDEX:
             skipped["unknown_group"] += 1
             continue
+        trial_mm_per_px = trial_scales.get(trial.trial, device_scales.get(trial.source))
+        if trial_mm_per_px is None or trial_mm_per_px <= 0.0:
+            skipped["no_scale"] += 1
+            continue
         try:
             built = build_trial(trial, args.fs, args.gravity_cutoff,
-                                mm_per_px=device_scales[trial.source], align=args.align)
+                                mm_per_px=trial_mm_per_px, align=args.align,
+                                search=tuple(args.align_search))
         except Exception as error:  # pragma: no cover - per-trial robustness
             skipped[f"error:{type(error).__name__}"] += 1
             continue
@@ -393,7 +428,7 @@ def main(argv: Iterable[str] | None = None) -> None:
             "duration_s": round(float(arrays["timestamp"][-1] - arrays["timestamp"][0]), 3),
             "pen_duration_s": round(float(arrays["mask"].sum() / args.fs), 3),
             "delta": trial.delta,
-            "device_mm_per_px": round(float(device_scales[trial.source]), 6),
+            "device_mm_per_px": round(float(trial_mm_per_px), 6),
             "align_lag_s": round(float(built["lag"]), 4),
             "coverage": round(float(built["coverage"]), 4),
             "pen_seconds": round(float(built["pen_seconds"]), 4),

@@ -36,7 +36,8 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 ├── ring_plot.py               # 戒指 IMU 数据可视化
 ├── visualize_results.py       # 结果可视化:轨迹重建对比/误差统计、字母混淆矩阵与识别样例、词识别对比与样例(输出 outputs/figures + metrics_summary.json)
 ├── evaluate_real_data.py      # 自采 200 Hz 数据(队友采集,raw/200hz)端到端评测:读 manifest 的 per-trial delta 对齐、按训练同口径预处理(1 Hz 高通去重力+gyro)、跑轨迹前端与字母分类器,输出 report.json/per_trial.csv/trajectories.npz;支持 --imu-source device、--align motion|manifest、--input-gain、--save-trajectories
-├── build_lab_dataset.py       # 自采 200 Hz 数据 → WritingRing 风格数据集:逐设备 mm 标定(3x3/5x5 cm 书写框 `bbox_height_px≈px_per_mm×box_mm`)、spike alignment(笔尖速度尖峰相关)、物理 mm 归一化 board、逐 trial 覆盖率记录 + `--min-coverage` 过滤;输出 meta.csv/dataset.json
+├── build_lab_dataset.py       # 自采 200 Hz 数据 → WritingRing 风格数据集:逐设备 mm 标定(3x3/5x5 cm 书写框 `bbox_height_px≈px_per_mm×box_mm`)、spike alignment(笔尖速度尖峰相关)、物理 mm 归一化 board、逐 trial 覆盖率记录 + `--min-coverage` 过滤;输出 meta.csv/dataset.json;新增 `--trial-scale-json`(逐 trial mm/px,无书写框批次用)与 `--align-search LOW HIGH STEP`
+├── build_wrist_resting_manifest.py # 手腕靠桌批次(2026-10-29,`/data/dataset/wrist-resting-new-data` 2879 trial/11 位书写者)→ `_meta/manifest.csv` + `trial_scale.json` + `scale_report.json`:尺度按「每用户字母 bbox 高度中位 = 30 mm」锚定逐 (user,canvas) mm/px;钟差 `delta = 首个 GT down − 首个 IMU received_at`(绝对值,逐 trial 吸收 wtc 的 591 s 平板时钟偏移)
 ├── train_lab_character.py     # 自采数据字母分类训练入口:GT/重建混训、与轨迹模型同划分(seed 42)、report 含逐字母 top1/top3 与混淆矩阵
 ├── verify_lab_alignment.py    # 重采批次对齐体检:读 IMU csv 的 mask/mask_v2/mask_v3,反推覆盖率、接触段位置与两套算法互差,输出逐 trial CSV + 直方图
 ├── visualize_lab_results.py   # 自采数据结果出图:真值 vs 重建轨迹样例、误差-覆盖率分组、26 字母识别率(GT/重建两列)、端到端混淆矩阵、识别样例
@@ -48,7 +49,7 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 ├── test_word_recognition.py   # 词识别单元测试(切分/特征/DTW/最近实例指标)
 ├── test_word_ctc.py           # CTC 单元测试(编辑距离/贪心解码/词表对齐/模型/collate)
 ├── models/                    # touch detector 输出:paper_touch_resnet.pt(8 ep,0.8829)+ report.json;exp_30/exp_50/ 为更充分训练实验(0.9038/0.9092),exp_50 附独立评估 test_report.json
-├── models_trajectory/         # 轨迹模型主训练输出(论文随机划分,V4 dilated+2层LSTM):paper_trajectory.pt + report.json
+├── models_trajectory/         # 轨迹模型主训练输出(论文随机划分,V4 dilated+2层LSTM):paper_trajectory.pt + report.json;wrist_resting_b2u/ 与 wrist_resting_noaux/ = 手腕靠桌批次重训(用户无重叠 test=user_8/11/17)
 ├── models_trajectory_topology/ # 拓扑/双向实验归档 v1、v3、v4(流式主模型)、u1(3层)、b2(双向)、x1/x3(B2 精调);b2u = 用户无重叠严格口径前端(+ eval15k/ 复评报告)
 ├── models_trajectory_user/    # 轨迹模型用户无重叠划分输出(严格对照,旧架构)
 ├── models_character/          # 字母分类输出:user_both/user_gt/random_both + user_both_ud(严格口径,前端 b2u),各含 character_cnn.pt + report.json;lab_{gt,gt_long,both_a,both_f} 为自采 200 Hz 数据
@@ -125,3 +126,4 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 - 模型输出:`models/`(含 `exp_30/`、`exp_50/` 实验归档)、`models_probe/`、`models_smoke/`(checkpoint + report.json,已纳入版本管理)。
 - 无 log 目录;训练/测试指标写入 report.json。
 - 重采批次(2026-10-09):`/data/huyang/trae_projects/new`(550 trial,fk 260 + yjx 290,每 trial 含 `_imu.csv`/`_gt_raw.csv`/`_gt_100hz.csv`,IMU csv 新增 `mask`/`mask_v2`/`mask_v3` 三种对齐掩码列)→ `RingLab/lab200_new_v1`(仓库外,550 样本;覆盖率中位 1.000、≥0.95 占 100%);建集走 `build_lab_dataset.py --align tablet_mask`,体检走 `verify_lab_alignment.py`。
+- 手腕靠桌批次(2026-10-29):原始 `/data/dataset/wrist-resting-new-data`(8637 csv = 2879 trial,11 位书写者,4 种画布)`--[build_wrist_resting_manifest.py]-->` `/data/huyang/datasets/RingLab/wrist_resting_raw/_meta/{manifest.csv,trial_scale.json,scale_report.json}``--[build_lab_dataset.py --align correlation --align-search -0.12 0.12 0.005 --trial-scale-json ... --min-coverage 0.90]-->` `/data/huyang/datasets/RingLab/wrist_resting_v1`(2819 样本,user_8..user_18 = huangzixin/maoyixuan/niexiaoyan/shaokaiwen/shaoyuxuan/wangfeilong/wangtiancheng/wangling/wangzhipeng/yangyiming/zhangxiaozheng);训练输出 `models_trajectory/wrist_resting_{b2u,noaux}/`,评测图 `outputs/wrist_resting_eval/`。

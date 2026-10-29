@@ -377,6 +377,29 @@ def train(args: argparse.Namespace) -> dict[str, Any]:
         train_samples, val_samples, test_samples, split_info = user_split_samples(
             samples, holdout_users=holdout_users
         )
+    if args.val_samples_ratio:
+        # Carve the validation split out of the *train* writers, so a small user pool can keep
+        # every writer in training instead of spending one whole writer on model selection.
+        # The whole-writer val set from user_split_samples is folded back into train first,
+        # otherwise its writer would still be missing from training.
+        pool_all = list(train_samples) + list(val_samples)
+        rng = random.Random(args.seed)
+        by_user: dict[str, list[Any]] = {}
+        for sample in pool_all:
+            by_user.setdefault(sample.user, []).append(sample)
+        moved: list[Any] = []
+        kept: list[Any] = []
+        for user in sorted(by_user, key=user_number):
+            pool = sorted(by_user[user], key=lambda item: (item.action, item.sample_id))
+            rng.shuffle(pool)
+            take = max(1, round(len(pool) * args.val_samples_ratio))
+            moved.extend(pool[:take])
+            kept.extend(pool[take:])
+        train_samples = kept
+        val_samples = moved
+        split_info["val_samples_ratio"] = args.val_samples_ratio
+        split_info["val_sample_users"] = sorted({sample.user for sample in moved}, key=user_number)
+        split_info["val_samples_from_train"] = len(moved)
 
     mean, std = compute_normalization(train_samples)
     train_refs = build_segment_refs(
@@ -613,6 +636,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-every", type=int, default=1)
     parser.add_argument(
         "--long-sample-strategy", choices=("pad_trim", "chunks"), default="pad_trim"
+    )
+    parser.add_argument(
+        "--val-samples-ratio",
+        type=float,
+        default=None,
+        help="with --split user: move this fraction of the train writers' samples into val "
+             "instead of holding out a whole writer (0.1 -> ~10 percent)",
     )
     parser.add_argument("--limit-samples", type=int)
     parser.add_argument("--seed", type=int, default=42)
