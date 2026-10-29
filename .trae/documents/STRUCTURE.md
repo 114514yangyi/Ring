@@ -117,6 +117,7 @@ Ring/                          # 仓库根;运行时以模块名 writing_state �
 ## 配置与依赖
 
 - 运行环境:conda 环境 `vae`(含 `torch 2.2.0+cu121`);base 环境无 torch。
+- 网络(2026-10-29 实测):本机直连 github.com 超时(443/22 均不通,gitee/pypi 正常),推 GitHub 需走本机代理 `127.0.0.1:7891`;已配置的 `~/.ssh/id_ed25519` 对 GitHub 认证有效,可用 `git -c url."git@github.com:".insteadOf="https://github.com/" -c core.sshCommand="ssh -o ProxyCommand='nc -X connect -x 127.0.0.1:7891 %h %p'" push origin main` 推送。
 - 依赖:torch、numpy、pandas;轨迹路径可选 `matplotlib`(绘图,缺失时跳过错图)、`compress_pickle`(board 标定,缺失时降级);仓库暂无 `requirements.txt`(待补充)。
 - 配置方式:无独立 config 目录,参数为 dataclass(`PaperTouchConfig`、`PaperTrajectoryConfig`、`DetectorConfig`)与训练脚本 argparse 参数。
 - 轨迹数据语义(已实测):`y[t] = board[t+1] - board[t]`;`board` 为归一化坐标(原始 Sensel 触点同样归一化),mm 误差按 Sensel Morph 240×169.5 mm 假设换算,结论写入 `report.board_scale_note`。
